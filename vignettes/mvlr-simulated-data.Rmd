@@ -1,0 +1,167 @@
+---
+title: "Fit a multivariate logistic regression model to simulated data"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{mvlr-simulated-data}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(multlogreg)
+```
+
+## Simulate data 
+
+```{r}
+# For reproducibility
+set.seed(445)
+
+# number of observations
+n <- 1000
+
+# number of outcomes
+q <- 3
+
+# Covariates
+## Continuous
+X1 <- rnorm(n, 0, 2)
+## Binary
+X2 <- rbinom(n, 1, 0.25)
+
+# Create data.frame (without intercept)
+my_data <- data.frame(X1, X2)
+
+# True vector of coefficients for each outcome
+beta1 <- c(1, -0.5, 0.5)
+beta2 <- c(-1, 1, -0.5)
+beta3 <- c(2, 1.2, 0.75)
+
+# Number of covariates (including intercepts)
+m <- length(c(beta1, beta2, beta3))
+
+# Define correlation matrix R
+R <- cbind(c(1  , 0.3, 0.5), 
+           c(0.3, 1  , 0.1),
+           c(0.5, 0.1, 1  ))
+
+## Parameters for the Student-t-distribution to match multivariate logistic
+# Degrees of freedom
+nu <- 7.3
+
+# sigma^2 
+sigtilde <- (pi^2) * (nu - 2) / (3 * nu)
+
+# Generate errors with multivariate Student-t distribution
+e <- mvtnorm::rmvt(n, sigma = sigtilde * R, df = nu)
+
+# Coefficient matrix
+B <- cbind(beta1, beta2, beta3)
+
+# Model matrix (same covariates for all outcomes with intercept)
+X <- as.matrix(cbind(1, my_data))
+
+# Create latent outcome variables
+Z <- X %*% B + e
+
+# Create corresponding outcome variables
+my_data[, c("Y1", "Y2", "Y3")] <- apply(Z > 0, 2, as.numeric)
+```
+
+## Fit multivariate logistic regression model 
+
+### Define initial values 
+
+```{r}
+# Initial values for parameters in MCMC algorithm
+beta0 <- rep(0, m)
+phi0 <- rep(1, n)
+r0 <- rep(0, q * (q - 1) / 2)
+
+# Prior distributions for the beta coefficients
+mubeta <- rep(0, m)
+sigbeta <- c(1000, rep(4, m - 1)) * diag(m)
+```
+
+### Define covariance matrix for the proposal distribution of the metropolis step for R
+
+```{r}
+# Variance-covariance matrix for proposal distribution in the Metropolis step for R
+omega <- 0.0001 * diag(q * (q - 1) / 2)
+```
+
+### Prepare list of coefficients for modelling
+
+```{r}
+coeffs <- list("Y1" = c("X1", "X2"), 
+               "Y2" = c("X1", "X2"), 
+               "Y3" = c("X1", "X2"))
+```
+
+### Define number of iterations, number of burn in samples and thinning
+For demonstration purposes only, these numbers should be higher for modelling. 
+
+```{r}
+iter <- 100
+burn_in <- 10
+thinning <- 5
+burn_in_truncated <- 10  # is equal to the default value
+```
+
+### Fit the model using the gibbs sampler
+
+```{r}
+set.seed(8595)
+
+# A warning message is issued if no proposed correlation matrix R is accepted
+# in the burn in 
+res  <-
+  mvlr(coeffs, my_data, iter, 
+       beta0, r0, phi0, 
+       mubeta, sigbeta, omega, 
+       burn_in, thinning, burn_in_truncated)
+```
+
+### Extract results
+
+```{r}
+(Racc <- res[["Racc"]])
+
+beta <- t(res[["beta"]])
+corr <- t(res[["r"]])
+wt <- res[["w"]]
+```
+
+### Compare results to true values
+Although we used a low number of iterations, the estimated coefficients are comparably close to the true values. 
+
+```{r}
+## Estimated coefficients without correction
+matrix(colMeans(beta), ncol = 3)
+
+## Estimated coefficients with correction
+matrix(colSums(wt[,1] * beta) / sum(wt), ncol = 3)
+
+## True values
+B
+```
+
+The correct estimation of the correlation matrix needs more iterations. 
+
+```{r}
+## Estimated correlation without correction
+colMeans(corr)
+
+## Estimated correlation with correction
+colSums(wt[,1] * corr) / sum(wt)
+
+## True values
+R[upper.tri(R)]
+```

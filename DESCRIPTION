@@ -1,0 +1,22 @@
+Package: multlogreg
+Type: Package
+Title: Multivariate Logistic Regression Models
+Version: 1.0
+Authors@R: person(given = "Katharina", family = "Selig",
+  email = "katharina.selig@gmail.com", role = c("aut", "cre"))
+Description: Fit multivariate logistic regression models. 
+License: GPL (>=2)
+Imports: 
+    Rcpp (>= 1.0.2)
+LinkingTo: 
+    Rcpp, 
+    RcppArmadillo
+RoxygenNote: 6.1.1
+Encoding: UTF-8
+Suggests: 
+    testthat (>= 2.1.0),
+    stats,
+    mvtnorm,
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
