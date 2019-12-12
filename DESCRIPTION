@@ -6,6 +6,8 @@ Authors@R: person(given = "Katharina", family = "Selig",
   email = "katharina.selig@gmail.com", role = c("aut", "cre"))
 Description: Fit multivariate logistic regression models. 
 License: GPL (>=2)
+URL: http://github.com/kathsel/multlogreg
+BugReports: http://github.com/kathsel/multlogreg/issues
 Imports: 
     Rcpp (>= 1.0.2)
 LinkingTo: 
